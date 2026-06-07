@@ -120,10 +120,8 @@ def load_model(args, n_images: int):
     cache_dir = os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))
     model_id   = args.model
     model_slug = model_id.replace("/", "--")
-    cached     = any(
-        Path(cache_dir, "hub", f"models--{model_slug}").exists(),
-        # also check legacy layout
-    ) if Path(cache_dir, "hub").exists() else False
+    cached     = (Path(cache_dir, "hub").exists() and
+                  Path(cache_dir, "hub", f"models--{model_slug}").exists())
 
     print()
     print("  Model    :", model_id)
@@ -198,29 +196,107 @@ def run(llm, messages: list[dict], args) -> str:
 
 
 def _resolve_images(messages: list[dict]) -> list[dict]:
-    """Replace image_url entries with PIL images for offline inference."""
-    import copy
-    resolved = copy.deepcopy(messages)
+    """
+    Return a new messages list with every string image_url converted to a
+    PIL Image for offline vLLM inference.  PIL Images already in the messages
+    (e.g. from run_dataset) are passed through unchanged.  No deepcopy is
+    performed — PIL Images are not safely deepcopy-able in all Pillow versions.
+    """
+    from PIL import Image as PILImage
+
+    resolved = []
     n = 0
-    for msg in resolved:
+    for msg in messages:
         content = msg.get("content")
         if not isinstance(content, list):
+            resolved.append(msg)
             continue
+
+        new_content = []
         for block in content:
             if block.get("type") == "image_url":
                 url = block["image_url"]["url"]
+                if isinstance(url, PILImage.Image):
+                    # already resolved — pass through as-is
+                    new_content.append(block)
+                    continue
+                if not isinstance(url, str):
+                    raise TypeError(f"image_url must be a str or PIL Image, got {type(url)}")
                 if url.startswith("data:"):
-                    header, b64 = url.split(",", 1)
-                    raw = base64.b64decode(b64)
-                    from PIL import Image
-                    img = Image.open(io.BytesIO(raw)).convert("RGB")
+                    _, b64 = url.split(",", 1)
+                    img = PILImage.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
                 else:
                     img = load_pil(url)
-                block["image_url"] = {"url": img}
+                new_content.append({**block, "image_url": {"url": img}})
                 n += 1
+            else:
+                new_content.append(block)
+
+        resolved.append({**msg, "content": new_content})
+
     if n:
         log(f"Resolved {n} image(s) to PIL objects.")
     return resolved
+
+
+def _smoke_test_resolve_images():
+    """
+    Verify _resolve_images handles all three input forms without needing a GPU.
+    Run with:  python inference/infer.py --smoke-test
+    """
+    from PIL import Image as PILImage
+    import numpy as np
+
+    # --- helpers ---
+    def red_img():
+        a = np.zeros((4, 4, 3), dtype=np.uint8)
+        a[:, :, 0] = 255
+        return PILImage.fromarray(a)
+
+    def to_data_uri(img):
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return f"data:image/png;base64,{b64}"
+
+    pil_img   = red_img()
+    data_uri  = to_data_uri(red_img())
+
+    messages = [
+        {"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": pil_img}},   # PIL passthrough
+            {"type": "image_url", "image_url": {"url": data_uri}},  # data URI
+            {"type": "text",      "text": "hello"},                  # text block
+        ]},
+        {"role": "system", "content": "be helpful"},                 # string content
+    ]
+
+    out = _resolve_images(messages)
+
+    # check structure preserved
+    assert len(out) == 2
+    content = out[0]["content"]
+    assert len(content) == 3
+
+    # PIL passthrough
+    assert isinstance(content[0]["image_url"]["url"], PILImage.Image), \
+        "PIL image should pass through unchanged"
+
+    # data URI decoded
+    assert isinstance(content[1]["image_url"]["url"], PILImage.Image), \
+        "data URI should be decoded to PIL Image"
+
+    # text block untouched
+    assert content[2] == {"type": "text", "text": "hello"}
+
+    # string content msg untouched
+    assert out[1]["content"] == "be helpful"
+
+    # original messages not mutated
+    assert isinstance(messages[0]["content"][0]["image_url"]["url"], PILImage.Image)
+    assert isinstance(messages[0]["content"][1]["image_url"]["url"], str)
+
+    print("_resolve_images smoke test PASSED")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -267,6 +343,8 @@ examples:
     p.add_argument("--data-dir",              default=None, metavar="DIR",
                    help="Path to dataloader output (e.g. data/data). "
                         "Iterates batch_NNN/ folders and writes result.json per batch.")
+    p.add_argument("--smoke-test",            action="store_true",
+                   help="Run _resolve_images smoke test and exit (no GPU needed).")
 
     return p.parse_args()
 
@@ -340,6 +418,10 @@ def run_dataset(llm, args):
 def main():
     log("Starting infer.py")
     args = parse_args()
+
+    if args.smoke_test:
+        _smoke_test_resolve_images()
+        return
 
     if args.data_dir:
         # Dataset mode: load model once, run across all batches
