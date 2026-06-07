@@ -195,12 +195,18 @@ def run(llm, messages: list[dict], args) -> str:
     return result
 
 
+def _pil_to_data_uri(img) -> str:
+    buf = io.BytesIO()
+    img.convert("RGB").save(buf, format="JPEG")
+    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def _resolve_images(messages: list[dict]) -> list[dict]:
     """
-    Return a new messages list with every string image_url converted to a
-    PIL Image for offline vLLM inference.  PIL Images already in the messages
-    (e.g. from run_dataset) are passed through unchanged.  No deepcopy is
-    performed — PIL Images are not safely deepcopy-able in all Pillow versions.
+    Return a new messages list with every image_url converted to a base64
+    data URI string for offline vLLM inference.  vLLM's chat() validates
+    image_url.url as a string via pydantic, so PIL Images cannot be passed
+    directly — they must be encoded here.
     """
     from PIL import Image as PILImage
 
@@ -217,25 +223,24 @@ def _resolve_images(messages: list[dict]) -> list[dict]:
             if block.get("type") == "image_url":
                 url = block["image_url"]["url"]
                 if isinstance(url, PILImage.Image):
-                    # already resolved — pass through as-is
-                    new_content.append(block)
+                    url = _pil_to_data_uri(url)
+                    new_content.append({**block, "image_url": {"url": url}})
+                    n += 1
                     continue
                 if not isinstance(url, str):
                     raise TypeError(f"image_url must be a str or PIL Image, got {type(url)}")
-                if url.startswith("data:"):
-                    _, b64 = url.split(",", 1)
-                    img = PILImage.open(io.BytesIO(base64.b64decode(b64))).convert("RGB")
-                else:
+                if not url.startswith("data:"):
                     img = load_pil(url)
-                new_content.append({**block, "image_url": {"url": img}})
-                n += 1
+                    url = _pil_to_data_uri(img)
+                    n += 1
+                new_content.append({**block, "image_url": {"url": url}})
             else:
                 new_content.append(block)
 
         resolved.append({**msg, "content": new_content})
 
     if n:
-        log(f"Resolved {n} image(s) to PIL objects.")
+        log(f"Resolved {n} image(s) to base64 data URIs.")
     return resolved
 
 
