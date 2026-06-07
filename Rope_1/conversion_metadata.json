@@ -1,0 +1,145 @@
+{
+  "dataset_name": "phystwin_unscaled",
+  "source_recording": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording",
+  "camera_order": [
+    "realsense_0",
+    "realsense_1",
+    "realsense_2"
+  ],
+  "camera_index_map": {
+    "realsense_0": 0,
+    "realsense_1": 1,
+    "realsense_2": 2
+  },
+  "num_cameras": 3,
+  "num_frames": 1,
+  "frame_selection": {
+    "start_frame": 0,
+    "end_frame": 1,
+    "stride": 1,
+    "selected_bundle_names": [
+      "bundle_000000"
+    ]
+  },
+  "rgb_filename": "rgb.jpg",
+  "depth_filename": "depth.npy",
+  "input_image_sizes": {
+    "realsense_0": [
+      1280,
+      720
+    ],
+    "realsense_1": [
+      1280,
+      720
+    ],
+    "realsense_2": [
+      1280,
+      720
+    ]
+  },
+  "output_image_sizes": {
+    "realsense_0": [
+      1280,
+      720
+    ],
+    "realsense_1": [
+      1280,
+      720
+    ],
+    "realsense_2": [
+      1280,
+      720
+    ]
+  },
+  "crop_by_camera": {},
+  "generated_layout": {
+    "color": "color/{camera_index}/{frame_index}.png",
+    "depth": "depth/{camera_index}/{frame_index}.npy"
+  },
+  "frames": [
+    {
+      "frame_idx": 0,
+      "bundle_name": "bundle_000000",
+      "bundle_path": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000",
+      "cameras": {
+        "realsense_0": {
+          "camera_index": 0,
+          "rgb_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/realsense_0/rgb.jpg",
+          "depth_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/realsense_0/depth.npy",
+          "rgb_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/color/0/0.png",
+          "depth_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/depth/0/0.npy",
+          "rgb_src_size": [
+            1280,
+            720
+          ],
+          "depth_src_size": [
+            1280,
+            720
+          ],
+          "output_size": [
+            1280,
+            720
+          ],
+          "crop": {
+            "top": 0,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          }
+        },
+        "realsense_1": {
+          "camera_index": 1,
+          "rgb_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/realsense_1/rgb.jpg",
+          "depth_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/realsense_1/depth.npy",
+          "rgb_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/color/1/0.png",
+          "depth_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/depth/1/0.npy",
+          "rgb_src_size": [
+            1280,
+            720
+          ],
+          "depth_src_size": [
+            1280,
+            720
+          ],
+          "output_size": [
+            1280,
+            720
+          ],
+          "crop": {
+            "top": 0,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          }
+        },
+        "realsense_2": {
+          "camera_index": 2,
+          "rgb_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/realsense_2/rgb.jpg",
+          "depth_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/realsense_2/depth.npy",
+          "rgb_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/color/2/0.png",
+          "depth_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/depth/2/0.npy",
+          "rgb_src_size": [
+            1280,
+            720
+          ],
+          "depth_src_size": [
+            1280,
+            720
+          ],
+          "output_size": [
+            1280,
+            720
+          ],
+          "crop": {
+            "top": 0,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          }
+        }
+      },
+      "meta_src": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording/bundle_000000/meta.json",
+      "meta_dst": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled/source_meta/0.json"
+    }
+  ]
+}

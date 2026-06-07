@@ -1,0 +1,136 @@
+{
+  "description": "Top-down Franka grasp using AnyGrasp rank-0 translation/width, but with the TCP z-axis forced to point downward in the Franka base frame.",
+  "pose_frame": "base",
+  "franka_max_width_assumed_m": 0.08,
+  "selected_grasp": {
+    "rank": 0,
+    "score": 0.07547475397586823,
+    "width": 0.0346500389277935,
+    "anygrasp_width_m": 0.0346500389277935,
+    "recommended_preopen_width_m": 0.06,
+    "recommended_grasp_width_m": 0.0,
+    "recommended_grasp_force_N": 35.0,
+    "base_translation_m": [
+      0.3796569920841795,
+      -0.1533528766165277,
+      0.04159317067958895
+    ],
+    "base_rotation_matrix": [
+      [
+        -0.13919395901300338,
+        0.9902651371093937,
+        0.0
+      ],
+      [
+        0.9902651371093938,
+        0.13919395901300335,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        -1.0
+      ]
+    ],
+    "base_pose_matrix_4x4": [
+      [
+        -0.13919395901300338,
+        0.9902651371093937,
+        0.0,
+        0.3796569920841795
+      ],
+      [
+        0.9902651371093938,
+        0.13919395901300335,
+        0.0,
+        -0.1533528766165277
+      ],
+      [
+        0.0,
+        0.0,
+        -1.0,
+        0.04159317067958895
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "base_rpy_rad": [
+      3.141592653589793,
+      -0.0,
+      1.710443730022586
+    ],
+    "base_rpy_deg": [
+      180.0,
+      -0.0,
+      98.0012068249082
+    ],
+    "tcp_z_axis_base": [
+      0.0,
+      0.0,
+      -1.0
+    ],
+    "tcp_z_down_alignment": 1.0,
+    "opening_axis_base": [
+      0.9902651371093937,
+      0.13919395901300335,
+      0.0
+    ],
+    "source_anygrasp_world_translation_m": [
+      0.12162719666957855,
+      0.05287852883338928,
+      -0.08929209411144257
+    ],
+    "source_anygrasp_world_rotation_matrix": [
+      [
+        -0.10877875238656998,
+        0.08521102368831635,
+        -0.9904070496559143
+      ],
+      [
+        -0.7796726226806641,
+        0.6107510328292847,
+        0.13818007707595825
+      ],
+      [
+        0.6166666746139526,
+        0.787224292755127,
+        -3.441066809273252e-08
+      ]
+    ],
+    "source_anygrasp_pose_matrix_4x4": [
+      [
+        -0.10877875238656998,
+        0.08521102368831635,
+        -0.9904070496559143,
+        0.12162719666957855
+      ],
+      [
+        -0.7796726226806641,
+        0.6107510328292847,
+        0.13818007707595825,
+        0.05287852883338928
+      ],
+      [
+        0.6166666746139526,
+        0.787224292755127,
+        -3.441066809273252e-08,
+        -0.08929209411144257
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "notes": [
+    "This is not the raw AnyGrasp orientation. It keeps AnyGrasp rank-0 XYZ and width, then overrides orientation to top-down.",
+    "Run hover-only first and visually verify finger direction before descent.",
+    "If the fingers are rotated 90 degrees from the desired direction, add/subtract 1.5708 rad to yaw or use --rot-offset-rpy 0 0 1.5708."
+  ]
+}

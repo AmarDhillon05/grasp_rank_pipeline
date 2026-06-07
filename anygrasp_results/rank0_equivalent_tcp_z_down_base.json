@@ -1,0 +1,79 @@
+{
+  "description": "Equivalent to AnyGrasp rank 0: same center and in-plane opening direction, but Franka TCP z-axis is forced to point straight downward in base frame.",
+  "pose_frame": "base",
+  "selected_grasp": {
+    "rank": 0,
+    "score": 0.07547475397586823,
+    "width": 0.0346500389277935,
+    "anygrasp_width_m": 0.0346500389277935,
+    "base_translation_m": [
+      0.3796569920841795,
+      -0.1533528766165277,
+      0.04159317067958895
+    ],
+    "base_rotation_matrix": [
+      [
+        -0.13919395901300338,
+        0.9902651371093937,
+        0.0
+      ],
+      [
+        0.9902651371093938,
+        0.13919395901300335,
+        0.0
+      ],
+      [
+        0.0,
+        0.0,
+        -1.0
+      ]
+    ],
+    "base_pose_matrix_4x4": [
+      [
+        -0.13919395901300338,
+        0.9902651371093937,
+        0.0,
+        0.3796569920841795
+      ],
+      [
+        0.9902651371093938,
+        0.13919395901300335,
+        0.0,
+        -0.1533528766165277
+      ],
+      [
+        0.0,
+        0.0,
+        -1.0,
+        0.04159317067958895
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ],
+    "base_rpy_rad": [
+      3.141592653589793,
+      -0.0,
+      1.710443730022586
+    ],
+    "base_rpy_deg": [
+      180.0,
+      -0.0,
+      98.0012068249082
+    ],
+    "tcp_z_axis_base": [
+      0.0,
+      0.0,
+      -1.0
+    ],
+    "opening_axis_base": [
+      0.9902651371093937,
+      0.13919395901300335,
+      0.0
+    ],
+    "note": "Use with --pose-frame base. For execution, add --hover-only first."
+  }
+}

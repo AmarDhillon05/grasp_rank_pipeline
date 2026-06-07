@@ -1,0 +1,126 @@
+{
+  "source": "best_grasp.json",
+  "source_rank": 0,
+  "source_score": 0.10415668040513992,
+  "source_anygrasp_width_m": 0.02412772737443447,
+  "source_anygrasp_width_mm": 24.12772737443447,
+  "pose_frame": "base",
+  "description": "Equivalent to current AnyGrasp rank 0: same base xyz and same horizontal in-plane gripper axis, but force TCP/local z-axis to point straight down in Franka base.",
+  "convention_note": "Use this if fr3.move_to_pose RPY uses TCP z-axis as the tool pointing / approach direction.",
+  "base_translation_m": [
+    0.48390973987441493,
+    -0.08000147628734514,
+    0.03982982452159539
+  ],
+  "base_rotation_matrix": [
+    [
+      -0.9853686699786683,
+      0.170436452158774,
+      0.0
+    ],
+    [
+      0.170436452158774,
+      0.9853686699786683,
+      0.0
+    ],
+    [
+      -0.0,
+      0.0,
+      -1.0
+    ]
+  ],
+  "base_pose_matrix_4x4": [
+    [
+      -0.9853686699786683,
+      0.170436452158774,
+      0.0,
+      0.48390973987441493
+    ],
+    [
+      0.170436452158774,
+      0.9853686699786683,
+      0.0,
+      -0.08000147628734514
+    ],
+    [
+      -0.0,
+      0.0,
+      -1.0,
+      0.03982982452159539
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "base_rpy_rad": [
+    3.141592653589793,
+    0.0,
+    2.970320068556522
+  ],
+  "base_rpy_deg": [
+    180.0,
+    0.0,
+    170.18680373129806
+  ],
+  "original_rank0_base_pose_before_downward_override": [
+    [
+      0.8452917866605018,
+      -0.5085018034430759,
+      0.16403594808505523,
+      0.48390973987441493
+    ],
+    [
+      -0.14620774695473732,
+      0.07515419047391507,
+      0.9863950470014438,
+      -0.08000147628734514
+    ],
+    [
+      -0.5139116170579018,
+      -0.8577749744627035,
+      -0.010819679878367737,
+      0.03982982452159539
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "original_anygrasp_world_pose": [
+    [
+      -0.828071117401123,
+      0.535925567150116,
+      -0.16456638276576996,
+      0.017414314672350883
+    ],
+    [
+      -0.13815626502037048,
+      0.08941443264484406,
+      0.9863660335540771,
+      0.12620201706886292
+    ],
+    [
+      0.5433333516120911,
+      0.8395171165466309,
+      -3.669645920467701e-08,
+      -0.0853533074259758
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "execution_hint": {
+    "pose_frame_arg": "base",
+    "first_test": "use --execute --hover-only before descent/grasp",
+    "suggested_final_z_offset_m": 0.005,
+    "suggested_grasp_force_N": 35.0
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "bundle_index": 0,
+  "saved_at_wallclock": "2026-05-20T20:32:56.292871",
+  "match_span_ms": 25.425195693969727,
+  "host_span_ms": 33.16985000856221,
+  "capture_mode": "image",
+  "camera_type": "realsense_only",
+  "selected_serials": [
+    "032622072103",
+    "332322070412",
+    "332522076785"
+  ],
+  "source_order": [
+    "realsense_0",
+    "realsense_1",
+    "realsense_2"
+  ],
+  "requested_color_resolution": [
+    1280,
+    720
+  ],
+  "requested_depth_resolution": [
+    1280,
+    720
+  ],
+  "fps": 15,
+  "sync_tolerance_ms": 45.0,
+  "anchor_source": "realsense_0",
+  "anchor_depth_frame_number": 33,
+  "writer_queue_size_at_enqueue": 0,
+  "drained_this_loop": {
+    "realsense_0": 1,
+    "realsense_1": 1,
+    "realsense_2": 1
+  },
+  "sources": {
+    "realsense_0": {
+      "serial": "032622072103",
+      "host_ts": 845396.463067992,
+      "device_ts": 1779323576.040856,
+      "match_ts": 845396.4339654446,
+      "color_frame_number": 34,
+      "depth_frame_number": 33,
+      "rgb_shape": [
+        720,
+        1280,
+        3
+      ],
+      "depth_shape": [
+        720,
+        1280
+      ],
+      "depth_dtype": "uint16",
+      "depth_scale": 0.0010000000474974513,
+      "manual_time_shift_ms": 0.0
+    },
+    "realsense_1": {
+      "serial": "332322070412",
+      "host_ts": 845396.48456371,
+      "device_ts": 1779323576.088116,
+      "match_ts": 845396.4569945335,
+      "color_frame_number": 34,
+      "depth_frame_number": 34,
+      "rgb_shape": [
+        720,
+        1280,
+        3
+      ],
+      "depth_shape": [
+        720,
+        1280
+      ],
+      "depth_dtype": "uint16",
+      "depth_scale": 0.0010000000474974513,
+      "manual_time_shift_ms": 0.0
+    },
+    "realsense_2": {
+      "serial": "332522076785",
+      "host_ts": 845396.496237842,
+      "device_ts": 1779323576.053157,
+      "match_ts": 845396.4315693378,
+      "color_frame_number": 32,
+      "depth_frame_number": 32,
+      "rgb_shape": [
+        720,
+        1280,
+        3
+      ],
+      "depth_shape": [
+        720,
+        1280
+      ],
+      "depth_dtype": "uint16",
+      "depth_scale": 0.0010000000474974513,
+      "manual_time_shift_ms": 0.0
+    }
+  }
+}

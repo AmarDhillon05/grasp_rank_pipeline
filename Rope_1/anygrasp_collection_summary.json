@@ -1,0 +1,49 @@
+{
+  "created_at": "2026-05-20T20:32:59.512576",
+  "purpose": "one-shot all-RealSense RGBD capture converted into an AnyGrasp-ready folder",
+  "final_output_root": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1",
+  "temporary_work_root": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work",
+  "temporary_work_root_removed": true,
+  "temporary_raw_recording_root": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording",
+  "temporary_intermediate_phystwin_root": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled",
+  "resolution": "high",
+  "expected_recording_image_size": [
+    1280,
+    720
+  ],
+  "allow_intrinsic_size_mismatch": false,
+  "intrinsic_dir": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Calibration_results/intrinsic_results/1280*720",
+  "extrinsic_dir": "/home/fr3/Documents/real2sim/000_Cleaned_Code/Calibration_results/extrinsic_results",
+  "fps": 15,
+  "warmup_seconds": 2.5,
+  "preview": true,
+  "camera_order": [
+    "realsense_0",
+    "realsense_1",
+    "realsense_2"
+  ],
+  "record_serials": null,
+  "serial_numbers_for_metadata": [
+    "realsense_0",
+    "realsense_1",
+    "realsense_2"
+  ],
+  "crops": [],
+  "default_crop_applied": false,
+  "frame_num": 1,
+  "depth_rescale_enabled": false,
+  "rs_depth_factor": 1.0,
+  "rs_cam_ids": [],
+  "generated_layout": {
+    "color": "color/{camera_index}/0.png",
+    "depth": "depth/{camera_index}/0.npy",
+    "calibration": "calibrate.pkl",
+    "metadata": "metadata.json",
+    "summary": "anygrasp_collection_summary.json"
+  },
+  "commands": [
+    "/home/fr3/miniforge3/envs/real2sim/bin/python /home/fr3/Documents/real2sim/000_Cleaned_Code/record_realsense_multi.py --capture-mode image --resolution high --fps 15 --num-cameras 3 --camera-names realsense_0 realsense_1 realsense_2 --output-root /home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording --warmup-seconds 2.5 --preview True --sync-tolerance-ms 45.0 --emitter-enabled unchanged",
+    "/home/fr3/miniforge3/envs/real2sim/bin/python /home/fr3/Documents/real2sim/000_Cleaned_Code/utils/raw_data_to_phystwin_style.py --raw-root /home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/raw_recording --output-root /home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled --camera-order realsense_0 realsense_1 realsense_2 --start-frame 0 --end-frame 1 --stride 1 --overwrite --copy-meta",
+    "/home/fr3/miniforge3/envs/real2sim/bin/python /home/fr3/Documents/real2sim/000_Cleaned_Code/utils/calibration_matrix_to_phystwin_style.py --intrinsic-dir '/home/fr3/Documents/real2sim/000_Cleaned_Code/Calibration_results/intrinsic_results/1280*720' --extrinsic-dir /home/fr3/Documents/real2sim/000_Cleaned_Code/Calibration_results/extrinsic_results --output-dir /home/fr3/Documents/real2sim/000_Cleaned_Code/Rope_1_work/phystwin_unscaled --camera-order realsense_0 realsense_1 realsense_2 --serial-numbers realsense_0 realsense_1 realsense_2 --frame-num 1 --overwrite --force-single-wh"
+  ]
+}

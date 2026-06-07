@@ -1,0 +1,363 @@
+#!/usr/bin/env python3
+"""
+One-shot VLM inference — loads the model directly (no server needed).
+Same arguments as client.py, plus GPU/cache controls.
+
+Model weights are cached in ~/.cache/huggingface by default (or $HF_HOME).
+On repeated runs the weights are read from disk rather than re-downloaded.
+
+Usage:
+  python infer.py "What is 2+2?"
+  python infer.py "Describe this." -i photo.jpg
+  python infer.py "Compare these." -i a.png -i b.jpg
+  python infer.py --messages history.json
+
+  # Dataset mode — iterate over dataloader output:
+  python infer.py --data-dir data/data "Which grasp would you choose and why?"
+"""
+
+import argparse
+import base64
+import io
+import json
+import os
+import sys
+import time
+from pathlib import Path
+
+DEFAULT_MODEL = "Qwen/Qwen3-VL-8B-Instruct-FP8"
+
+# ── Timing helper ─────────────────────────────────────────────────────────────
+
+_t0 = time.perf_counter()
+
+def log(msg: str):
+    elapsed = time.perf_counter() - _t0
+    print(f"[{elapsed:6.1f}s] {msg}", flush=True)
+
+
+# ── Image loading ─────────────────────────────────────────────────────────────
+
+def load_pil(src: str):
+    """Return a PIL.Image from a local path or URL."""
+    try:
+        from PIL import Image
+    except ImportError:
+        sys.exit("[ERROR] Pillow not installed. Run: pip install Pillow")
+
+    if src.startswith("http://") or src.startswith("https://"):
+        import urllib.request
+        log(f"Fetching image URL: {src}")
+        with urllib.request.urlopen(src, timeout=30) as r:
+            img = Image.open(io.BytesIO(r.read())).convert("RGB")
+        log(f"Image fetched: {img.size}")
+        return img
+
+    path = Path(src)
+    if not path.exists():
+        sys.exit(f"[ERROR] Image not found: {src}")
+    img = Image.open(path).convert("RGB")
+    log(f"Image loaded from disk: {path.name}  size={img.size}")
+    return img
+
+
+# ── Message building ──────────────────────────────────────────────────────────
+
+def build_messages(args) -> tuple[list[dict], int]:
+    """Return (messages, n_images) using the same format as client.py."""
+    log("Building messages...")
+
+    if args.messages:
+        path = Path(args.messages)
+        if not path.exists():
+            sys.exit(f"[ERROR] Messages file not found: {args.messages}")
+        messages = json.loads(path.read_text())
+        n_images = sum(
+            1
+            for m in messages
+            for c in (m["content"] if isinstance(m["content"], list) else [])
+            if isinstance(c, dict) and c.get("type") == "image_url"
+        )
+        log(f"Loaded messages from {path.name}: {len(messages)} turns, {n_images} image(s)")
+        return messages, n_images
+
+    if not args.prompt:
+        sys.exit("[ERROR] Provide a prompt or --messages file.")
+
+    content: list = []
+    images = args.image or []
+
+    for img_src in images:
+        content.append({"type": "image_url", "image_url": {"url": img_src}})
+
+    content.append({"type": "text", "text": args.prompt})
+
+    messages = []
+    if args.system:
+        messages.append({"role": "system", "content": args.system})
+        log("System prompt added.")
+    messages.append({"role": "user", "content": content})
+
+    log(f"Messages ready: {len(messages)} turn(s), {len(images)} image(s), "
+        f"prompt length={len(args.prompt)} chars")
+    return messages, len(images)
+
+
+# ── Model loading (cached) ────────────────────────────────────────────────────
+
+def load_model(args, n_images: int):
+    """Load vLLM LLM, reusing the HuggingFace disk cache between runs."""
+    log("Importing vllm...")
+    try:
+        from vllm import LLM
+    except ImportError:
+        sys.exit("[ERROR] vLLM not installed. Run: pip install vllm")
+    log("vllm imported.")
+
+    if args.cache_dir:
+        os.environ["HF_HOME"] = args.cache_dir
+
+    cache_dir = os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))
+    model_id   = args.model
+    model_slug = model_id.replace("/", "--")
+    cached     = any(
+        Path(cache_dir, "hub", f"models--{model_slug}").exists(),
+        # also check legacy layout
+    ) if Path(cache_dir, "hub").exists() else False
+
+    print()
+    print("  Model    :", model_id)
+    print("  Cache    :", cache_dir)
+    print("  Cached?  :", "yes (loading from disk)" if cached else "no (will download)")
+    print("  dtype    :", args.dtype)
+    print("  GPU mem  :", args.gpu_memory)
+    print("  TP size  :", args.tensor_parallel)
+    if args.quantization:
+        print("  Quant    :", args.quantization)
+    if args.max_model_len:
+        print("  Max len  :", args.max_model_len)
+    print()
+
+    kwargs = dict(
+        model=model_id,
+        dtype=args.dtype,
+        gpu_memory_utilization=args.gpu_memory,
+        tensor_parallel_size=args.tensor_parallel,
+        trust_remote_code=args.trust_remote_code,
+        limit_mm_per_prompt={"image": max(n_images, 1)},
+        enable_prefix_caching=True,
+    )
+    if args.quantization:
+        kwargs["quantization"] = args.quantization
+    if args.max_model_len:
+        kwargs["max_model_len"] = args.max_model_len
+
+    log("Initialising LLM engine (loading weights into GPU)...")
+    llm = LLM(**kwargs)
+    log("LLM engine ready.")
+    return llm
+
+
+# ── Inference ─────────────────────────────────────────────────────────────────
+
+def run(llm, messages: list[dict], args) -> str:
+    from vllm import SamplingParams
+
+    log("Resolving images for offline inference...")
+    try:
+        from PIL import Image  # noqa: F401
+        resolved = _resolve_images(messages)
+    except ImportError:
+        log("Pillow not available — passing messages as-is.")
+        resolved = messages
+    log("Images resolved.")
+
+    sampling = SamplingParams(
+        temperature=args.temperature if args.temperature is not None else 0.1,
+        max_tokens =args.max_tokens  if args.max_tokens  is not None else 2048,
+        top_p      =args.top_p       if args.top_p       is not None else 1.0,
+        top_k      =args.top_k       if args.top_k       is not None else -1,
+        stop       =args.stop or [],
+    )
+    log(f"Sampling params: temp={sampling.temperature}  max_tokens={sampling.max_tokens}  "
+        f"top_p={sampling.top_p}  top_k={sampling.top_k}")
+
+    log("Running inference (tokenising + prefill + decode)...")
+    t_gen = time.perf_counter()
+    outputs = llm.chat(resolved, sampling_params=sampling, use_tqdm=False)
+    t_gen = time.perf_counter() - t_gen
+
+    result    = outputs[0].outputs[0].text
+    n_out_tok = len(outputs[0].outputs[0].token_ids)
+    n_in_tok  = len(outputs[0].prompt_token_ids) if outputs[0].prompt_token_ids else "?"
+
+    log(f"Inference done in {t_gen:.2f}s  |  "
+        f"input tokens={n_in_tok}  output tokens={n_out_tok}  "
+        f"tok/s={n_out_tok/t_gen:.1f}")
+    return result
+
+
+def _resolve_images(messages: list[dict]) -> list[dict]:
+    """Replace image_url entries with PIL images for offline inference."""
+    import copy
+    resolved = copy.deepcopy(messages)
+    n = 0
+    for msg in resolved:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if block.get("type") == "image_url":
+                url = block["image_url"]["url"]
+                if url.startswith("data:"):
+                    header, b64 = url.split(",", 1)
+                    raw = base64.b64decode(b64)
+                    from PIL import Image
+                    img = Image.open(io.BytesIO(raw)).convert("RGB")
+                else:
+                    img = load_pil(url)
+                block["image_url"] = {"url": img}
+                n += 1
+    if n:
+        log(f"Resolved {n} image(s) to PIL objects.")
+    return resolved
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="One-shot VLM inference (no server needed).",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+examples:
+  python infer.py "What is 2+2?"
+  python infer.py "Describe this image." -i photo.jpg
+  python infer.py "Compare these." -i a.png -i b.jpg
+  python infer.py --messages history.json
+  python infer.py "Tell me a story." --temperature 0.9 --max-tokens 512
+  python infer.py "Hello" -m mistralai/Mistral-7B-Instruct-v0.3
+  python infer.py "Hello" --cache-dir /scratch/hf_cache
+""",
+    )
+
+    p.add_argument("prompt",         nargs="?",       help="Text prompt")
+    p.add_argument("-i", "--image",  action="append", metavar="PATH_OR_URL",
+                   help="Image file or URL (repeatable)")
+    p.add_argument("--messages",     metavar="FILE",
+                   help="JSON file with a full messages array")
+    p.add_argument("--system",       metavar="TEXT",  help="System prompt")
+
+    p.add_argument("--temperature",  type=float, default=None)
+    p.add_argument("--max-tokens",   type=int,   default=None)
+    p.add_argument("--top-p",        type=float, default=None)
+    p.add_argument("--top-k",        type=int,   default=None)
+    p.add_argument("--stop",         action="append", metavar="STR")
+
+    p.add_argument("-m", "--model",           default=DEFAULT_MODEL)
+    p.add_argument("-d", "--dtype",           default="auto",
+                   choices=["auto", "float16", "bfloat16", "float32"])
+    p.add_argument("-g", "--gpu-memory",      default=0.90, type=float, metavar="FRAC")
+    p.add_argument("-t", "--tensor-parallel", default=1,    type=int,   metavar="N")
+    p.add_argument("-q", "--quantization",    default=None)
+    p.add_argument("--max-model-len",         default=None, type=int)
+    p.add_argument("--trust-remote-code",     action="store_true")
+    p.add_argument("--cache-dir",             default=None, metavar="DIR",
+                   help="HuggingFace cache dir (sets $HF_HOME)")
+    p.add_argument("--data-dir",              default=None, metavar="DIR",
+                   help="Path to dataloader output (e.g. data/data). "
+                        "Iterates batch_NNN/ folders and writes result.json per batch.")
+
+    return p.parse_args()
+
+
+def run_dataset(llm, args):
+    """
+    Iterate every batch_NNN folder in args.data_dir, run inference on the
+    overlay images, and write result.json into each batch folder.
+    """
+    data_dir = Path(args.data_dir)
+    if not data_dir.exists():
+        sys.exit(f"[ERROR] Data directory not found: {data_dir}")
+
+    batch_dirs = sorted(d for d in data_dir.iterdir()
+                        if d.is_dir() and d.name.startswith("batch_"))
+    if not batch_dirs:
+        sys.exit(f"[ERROR] No batch_NNN folders found in {data_dir}")
+
+    log(f"Dataset mode: {len(batch_dirs)} batches in {data_dir}")
+
+    prompt = args.prompt or "Examine the labeled grasps in these images. Which grasp would you select and why?"
+
+    for batch_dir in batch_dirs:
+        meta_path = batch_dir / "metadata.json"
+        if not meta_path.exists():
+            log(f"  Skipping {batch_dir.name} — no metadata.json")
+            continue
+
+        meta = json.loads(meta_path.read_text())
+        overlay_paths = sorted(batch_dir.glob("overlay_*.png"))
+
+        if not overlay_paths:
+            log(f"  Skipping {batch_dir.name} — no overlay images")
+            continue
+
+        log(f"  {batch_dir.name}: {len(overlay_paths)} image(s), "
+            f"{len(meta['grasps'])} grasp(s)")
+
+        # Build message: images first, then the text prompt
+        content = []
+        for p in overlay_paths:
+            img = load_pil(str(p))
+            content.append({"type": "image_url", "image_url": {"url": img}})
+        content.append({"type": "text", "text": prompt})
+
+        messages = []
+        if args.system:
+            messages.append({"role": "system", "content": args.system})
+        messages.append({"role": "user", "content": content})
+
+        response = run(llm, messages, args)
+
+        result = {
+            "batch_index":  meta["batch_index"],
+            "model":        args.model,
+            "prompt":       prompt,
+            "images_used":  [p.name for p in overlay_paths],
+            "grasps":       [{"label": g["label"], "score": g["score"],
+                              "color_rgb": g["color_rgb"]}
+                             for g in meta["grasps"]],
+            "response":     response,
+        }
+
+        result_path = batch_dir / "result.json"
+        result_path.write_text(json.dumps(result, indent=2))
+        log(f"  Saved: {result_path}")
+
+    log(f"Dataset inference complete — {len(batch_dirs)} batches processed.")
+
+
+def main():
+    log("Starting infer.py")
+    args = parse_args()
+
+    if args.data_dir:
+        # Dataset mode: load model once, run across all batches
+        # Use max images per batch to set the limit (3 cameras is typical)
+        llm = load_model(args, n_images=3)
+        run_dataset(llm, args)
+    else:
+        messages, n_images = build_messages(args)
+        llm    = load_model(args, n_images)
+        result = run(llm, messages, args)
+
+        log("Done. Response:")
+        print()
+        print(result)
+        print()
+
+    log(f"Total wall time: {time.perf_counter() - _t0:.1f}s")
+
+
+if __name__ == "__main__":
+    main()
