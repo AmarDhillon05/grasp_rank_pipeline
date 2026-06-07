@@ -236,26 +236,47 @@ python mpcliv.py \
 
 ---
 
-## Data Layout
+## Repo Layout
 
 ```
-Rope_1/
-  color/<cam_idx>/0.png          # real camera photos (0=rs0, 1=rs1, 2=rs2)
-  depth/<cam_idx>/0.npy          # depth frames
-  metadata.json
+scene_data/                          # raw capture + AnyGrasp outputs
+  anygrasp_observation_only.npz      #   scene pointcloud: "points" (N,3), "colors" (N,3)
+  anygrasp_results/
+    grasps.json                      #   {score, pose_matrix_4x4, width, depth, height, ...}
+    best_grasp.json
+    grasp_pose_matrices.npy
+  Calibration_results/
+    extrinsic_results/
+      realsense_<N>_extrinsic.json   #   K, T_cam_from_world, T_world_from_cam, image_size, dist
+    robot_calib_results/
+      robot_calib_result.json        #   T_world_from_base
+  Rope_1/
+    color/<cam_idx>/0.png            #   real photos (cam_idx 0/1/2 = rs0/rs1/rs2)
+    depth/<cam_idx>/0.npy            #   depth frames
 
-Calibration_results/
-  extrinsic_results/
-    realsense_<N>_extrinsic.json # K, T_world_from_cam, T_cam_from_world, image_size, dist
-  robot_calib_results/
-    robot_calib_result.json      # T_world_from_base
+rendering/                           # visualization scripts
+  viz.py                             #   shared primitives (loaders, gripper, render backends)
+  viz_with_arm.py                    #   Franka FK + Open3D stick figure
+  pov_viz.py                         #   recommended multi-camera renderer
+  pc_to_image_overlay.py             #   batched per-camera overlay renderer
+  mcliv.py                           #   legacy (BUG-001)
+  mpcliv.py                          #   legacy (BUG-001, BUG-002)
 
-anygrasp_results/
-  grasps.json                    # list of {score, pose_matrix_4x4, width, depth, height, ...}
-  best_grasp.json
-  grasp_pose_matrices.npy
+renders/                             # render outputs (generated, not committed)
+  renders_overlay/
+  renders_overlay_2d/
+  renders_pov/
 
-anygrasp_observation_only.npz   # scene pointcloud: keys "points" (N,3) and "colors" (N,3)
+data/                                # dataset pipeline
+  dataloader.py                      #   builds data/data/ from scene_data + rendering
+  metadata_format.md                 #   schema reference for metadata.json
+  data/
+    batch_NNN/
+      overlay_<camera_name>.png
+      metadata.json
+
+inference/                           # VLM inference
+  infer.py
 ```
 
 **Calibration JSON fields used by renderers:**

@@ -68,9 +68,9 @@ if __name__ == "__main__":
     parser.add_argument("--npz", required=True)
     parser.add_argument("--grasp_json", required=True)
     parser.add_argument("--cams", nargs="+", required=True)
-    parser.add_argument("--color_dir", default="Rope_1/color",
+    parser.add_argument("--color_dir", default="scene_data/Rope_1/color",
                         help="root of real photos: <color_dir>/<cam_idx>/0.png")
-    parser.add_argument("--out_dir", default="renders_overlay")
+    parser.add_argument("--out_dir", default="renders/renders_overlay")
     parser.add_argument("--k", type=int, default=3,
                         help="grasps shown per image")
     parser.add_argument("--top_k", type=int, default=None,

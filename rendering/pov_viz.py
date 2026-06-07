@@ -96,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument("--npz", required=True)
     parser.add_argument("--grasp_json", required=True)
     parser.add_argument("--cams", nargs="+", required=True)
-    parser.add_argument("--out_dir", default="renders")
+    parser.add_argument("--out_dir", default="renders/renders_pov")
     parser.add_argument("--color_dir", default=None,
                         help="root of real photos: <color_dir>/<cam_idx>/0.png. "
                              "If provided, composites render over real photo.")

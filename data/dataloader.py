@@ -1,11 +1,13 @@
 import os
 import re
+import sys
 import json
 import shutil
 import argparse
 import numpy as np
 from PIL import Image
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'rendering'))
 from viz import load_npz, load_grasps, assign_grasp_colors, draw_grasp_schematic, grasp_to_T
 
 
@@ -134,7 +136,7 @@ if __name__ == "__main__":
     parser.add_argument("--npz",        required=True)
     parser.add_argument("--grasp_json", required=True)
     parser.add_argument("--cams",       nargs="+", required=True)
-    parser.add_argument("--color_dir",  default="Rope_1/color")
+    parser.add_argument("--color_dir",  default="scene_data/Rope_1/color")
     parser.add_argument("--batch_size", type=int, default=3,
                         help="number of grasps per batch / output image")
     parser.add_argument("--top_k",      type=int, default=None,
