@@ -348,6 +348,9 @@ examples:
     p.add_argument("--data-dir",              default=None, metavar="DIR",
                    help="Path to dataloader output (e.g. data/data). "
                         "Iterates batch_NNN/ folders and writes result.json per batch.")
+    p.add_argument("--global-rank",           action="store_true",
+                   help="With --data-dir: send all batch images to the VLM in one call "
+                        "for a single global ranking, writing result.json at the data-dir level.")
     p.add_argument("--smoke-test",            action="store_true",
                    help="Run _resolve_images smoke test and exit (no GPU needed).")
 
@@ -420,6 +423,85 @@ def run_dataset(llm, args):
     log(f"Dataset inference complete — {len(batch_dirs)} batches processed.")
 
 
+def run_dataset_global(llm, args):
+    """
+    Collect every overlay image from every batch_NNN folder and send them all
+    to the VLM in a single call for a global ranking across all grasps.
+    Writes one result.json at the data_dir level.
+    """
+    data_dir = Path(args.data_dir)
+    if not data_dir.exists():
+        sys.exit(f"[ERROR] Data directory not found: {data_dir}")
+
+    batch_dirs = sorted(d for d in data_dir.iterdir()
+                        if d.is_dir() and d.name.startswith("batch_"))
+    if not batch_dirs:
+        sys.exit(f"[ERROR] No batch_NNN folders found in {data_dir}")
+
+    log(f"Global-rank mode: collecting images from {len(batch_dirs)} batches in {data_dir}")
+
+    prompt = args.prompt or (
+        "You are shown all candidate grasps across multiple views. "
+        "Each grasp is labeled (G0, G1, …). "
+        "Rank ALL grasps from best to worst and explain your reasoning."
+    )
+
+    all_grasps = []
+    content = []
+
+    for batch_dir in batch_dirs:
+        meta_path = batch_dir / "metadata.json"
+        if not meta_path.exists():
+            log(f"  Skipping {batch_dir.name} — no metadata.json")
+            continue
+
+        meta = json.loads(meta_path.read_text())
+        overlay_paths = sorted(batch_dir.glob("overlay_*.png"))
+
+        if not overlay_paths:
+            log(f"  Skipping {batch_dir.name} — no overlay images")
+            continue
+
+        log(f"  {batch_dir.name}: {len(overlay_paths)} image(s), "
+            f"{len(meta['grasps'])} grasp(s)")
+
+        for p in overlay_paths:
+            img = load_pil(str(p))
+            content.append({"type": "image_url", "image_url": {"url": img}})
+
+        all_grasps.extend(
+            {"label": g["label"], "score": g["score"], "color_rgb": g["color_rgb"],
+             "batch": meta["batch_index"]}
+            for g in meta["grasps"]
+        )
+
+    if not content:
+        sys.exit("[ERROR] No overlay images found across any batch.")
+
+    total_images = len(content)
+    content.append({"type": "text", "text": prompt})
+
+    messages = []
+    if args.system:
+        messages.append({"role": "system", "content": args.system})
+    messages.append({"role": "user", "content": content})
+
+    log(f"Sending {total_images} image(s) covering {len(all_grasps)} grasp(s) to model...")
+    response = run(llm, messages, args)
+
+    result = {
+        "model":        args.model,
+        "prompt":       prompt,
+        "total_images": total_images,
+        "grasps":       all_grasps,
+        "response":     response,
+    }
+
+    result_path = data_dir / "result.json"
+    result_path.write_text(json.dumps(result, indent=2))
+    log(f"Saved global result: {result_path}")
+
+
 def main():
     log("Starting infer.py")
     args = parse_args()
@@ -429,10 +511,19 @@ def main():
         return
 
     if args.data_dir:
-        # Dataset mode: load model once, run across all batches
-        # Use max images per batch to set the limit (3 cameras is typical)
-        llm = load_model(args, n_images=3)
-        run_dataset(llm, args)
+        if args.global_rank:
+            # Count total images so the model limit is set correctly
+            data_dir = Path(args.data_dir)
+            batch_dirs = sorted(d for d in data_dir.iterdir()
+                                if d.is_dir() and d.name.startswith("batch_"))
+            n_images = sum(len(list(d.glob("overlay_*.png"))) for d in batch_dirs)
+            llm = load_model(args, n_images=max(n_images, 1))
+            run_dataset_global(llm, args)
+        else:
+            # Per-batch mode: load model once, run across all batches
+            # Use max images per batch to set the limit (3 cameras is typical)
+            llm = load_model(args, n_images=3)
+            run_dataset(llm, args)
     else:
         messages, n_images = build_messages(args)
         llm    = load_model(args, n_images)
