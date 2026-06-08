@@ -15,7 +15,7 @@ Usage:
   # Dataset mode — iterate over dataloader output:
   python infer.py --data-dir data/data "Which grasp would you choose and why?"
 
-  python infer.py --data-dir data/data --global-rank --gpu-memory 0.95 --max-model-len 29728python infer.py --data-dir data/data --global-rank --gpu-memory 0.95 --max-model-len 29728
+  python inference/infer.py --data-dir data/data --global-rank --gpu-memory 0.95 --max-model-len 29728python infer.py --data-dir data/data --global-rank --gpu-memory 0.95 --max-model-len 29728
 """
 
 import argparse
@@ -197,6 +197,25 @@ def run(llm, messages: list[dict], args) -> str:
     return result
 
 
+def _parse_ranking(response: str) -> list[str] | None:
+    """
+    Extract the grasp ranking list from a model response that contains a line like:
+        RANKING: ["G5", "G0", "G3", ...]
+    Returns the list of label strings, or None if not found / unparseable.
+    """
+    import re
+    m = re.search(r'RANKING:\s*(\[.*?\])', response, re.DOTALL)
+    if not m:
+        return None
+    try:
+        ranking = json.loads(m.group(1))
+        if isinstance(ranking, list) and all(isinstance(x, str) for x in ranking):
+            return ranking
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return None
+
+
 def _pil_to_data_uri(img) -> str:
     buf = io.BytesIO()
     img.convert("RGB").save(buf, format="JPEG")
@@ -375,7 +394,14 @@ def run_dataset(llm, args):
 
     log(f"Dataset mode: {len(batch_dirs)} batches in {data_dir}")
 
-    prompt = args.prompt or "Examine the labeled grasps in these images. Which grasp would you select and why?"
+    prompt = args.prompt or (
+        "Examine the labeled grasps in these images. "
+        "For each grasp assess: grasp quality, stability, and how much the gripper or object is occluded by other objects or surfaces. "
+        "Heavily penalise grasps where the gripper collides with or is significantly blocked by surrounding objects. "
+        "Describe which grasp you would select and why. "
+        "Then on the final line write your ranking from best to worst in this exact format: "
+        'RANKING: ["G0", "G1", ...]'
+    )
 
     for batch_dir in batch_dirs:
         meta_path = batch_dir / "metadata.json"
@@ -406,6 +432,9 @@ def run_dataset(llm, args):
         messages.append({"role": "user", "content": content})
 
         response = run(llm, messages, args)
+        ranking  = _parse_ranking(response)
+        if ranking is None:
+            log("  Warning: could not parse RANKING list from response.")
 
         result = {
             "batch_index":  meta["batch_index"],
@@ -415,6 +444,7 @@ def run_dataset(llm, args):
             "grasps":       [{"label": g["label"], "score": g["score"],
                               "color_rgb": g["color_rgb"]}
                              for g in meta["grasps"]],
+            "ranking":      ranking,
             "response":     response,
         }
 
@@ -443,9 +473,12 @@ def run_dataset_global(llm, args):
     log(f"Global-rank mode: collecting images from {len(batch_dirs)} batches in {data_dir}")
 
     prompt = args.prompt or (
-        "You are shown all candidate grasps across multiple views. "
+        "You are shown all candidate grasps across multiple camera views. "
         "Each grasp is labeled (G0, G1, …). "
-        "Rank ALL grasps from best to worst and explain your reasoning."
+        "For each grasp assess: grasp quality, stability, and how much the gripper or object is occluded by other objects or surfaces. "
+        "Heavily penalise grasps where the gripper collides with or is significantly blocked by surrounding objects. "
+        "Describe your reasoning for each grasp, then on the final line write ALL grasps ranked from best to worst "
+        'in this exact format: RANKING: ["G0", "G1", ...]'
     )
 
     all_grasps = []
@@ -490,12 +523,16 @@ def run_dataset_global(llm, args):
 
     log(f"Sending {total_images} image(s) covering {len(all_grasps)} grasp(s) to model...")
     response = run(llm, messages, args)
+    ranking  = _parse_ranking(response)
+    if ranking is None:
+        log("Warning: could not parse RANKING list from response.")
 
     result = {
         "model":        args.model,
         "prompt":       prompt,
         "total_images": total_images,
         "grasps":       all_grasps,
+        "ranking":      ranking,
         "response":     response,
     }
 

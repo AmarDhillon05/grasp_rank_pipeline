@@ -136,6 +136,19 @@ def main(args):
 
         print(f"  batch {batch_idx:03d}: {len(batch)} grasps saved")
 
+    # Singles: one image per grasp per camera
+    singles_dir = os.path.join(out_root, "singles")
+    os.makedirs(singles_dir)
+    for g, ca in zip(top_grasps, global_cas):
+        for cam in cameras:
+            cam_name = cam["camera_name"]
+            photo, K_mat, T_cam_from_world = photos[cam_name]
+            composite = draw_grasp_schematic(photo.copy(), [g], [ca], K_mat, T_cam_from_world, line_width=lw)
+            Image.fromarray(composite).save(
+                os.path.join(singles_dir, f"{ca['label']}_{cam_name}.png")
+            )
+    print(f"  singles: {len(top_grasps)} grasps × {len(cameras)} cameras saved")
+
     print(f"\nDone. Output in data/data/")
 
 
