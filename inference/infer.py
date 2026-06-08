@@ -14,6 +14,8 @@ Usage:
 
   # Dataset mode — iterate over dataloader output:
   python infer.py --data-dir data/data "Which grasp would you choose and why?"
+
+  python infer.py --data-dir data/data --global-rank --gpu-memory 0.95 --max-model-len 29728python infer.py --data-dir data/data --global-rank --gpu-memory 0.95 --max-model-len 29728
 """
 
 import argparse

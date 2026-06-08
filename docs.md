@@ -125,17 +125,19 @@ python pov_viz.py --npz ... --grasp_json ... --cams ... --sim
 
 Generates a structured dataset under `data/data/` — one folder per batch containing overlay images for every camera and a `metadata.json` with full grasp info and projected 2D keypoints. Intended as the primary entry point for building VLM training/eval data.
 
-Accepts the same arguments as `pc_to_image_overlay.py`, replacing `--k` with `--batch_size`.
+Grasp labels (G0, G1, …) are assigned **globally** across all batches so the VLM can reference any grasp unambiguously. Colors are shuffled (fixed seed) so grasps within each batch are visually distinct rather than similar hues.
+
+Run from the **repo root** using the `graspgen` conda env:
 
 **CLI:**
 ```bash
-python dataloader.py \
-  --npz anygrasp_observation_only.npz \
-  --grasp_json anygrasp_results/grasps.json \
-  --cams Calibration_results/extrinsic_results/realsense_0_extrinsic.json \
-         Calibration_results/extrinsic_results/realsense_1_extrinsic.json \
-         Calibration_results/extrinsic_results/realsense_2_extrinsic.json \
-  --color_dir Rope_1/color \
+/mnt/c/Users/adhil/miniconda3/envs/graspgen/python.exe data/dataloader.py \
+  --npz scene_data/anygrasp_observation_only.npz \
+  --grasp_json scene_data/anygrasp_results/grasps.json \
+  --cams scene_data/Calibration_results/extrinsic_results/realsense_0_extrinsic.json \
+         scene_data/Calibration_results/extrinsic_results/realsense_1_extrinsic.json \
+         scene_data/Calibration_results/extrinsic_results/realsense_2_extrinsic.json \
+  --color_dir scene_data/Rope_1/color \
   --batch_size 3 \
   --mode 3d
 ```
@@ -145,12 +147,13 @@ python dataloader.py \
 data/
   metadata_format.md
   data/
-    batch_000/
+    batch_000/          ← grasps G0, G1, G2
       overlay_realsense_0.png
       overlay_realsense_1.png
       overlay_realsense_2.png
       metadata.json
-    batch_001/ …
+    batch_001/          ← grasps G3, G4, G5
+    …
 ```
 
 **Arguments:**
@@ -166,6 +169,42 @@ data/
 | `--mode` | `3d` | `3d`: thick extruded rectangles; `2d`: thin wireframe |
 
 See [data/metadata_format.md](data/metadata_format.md) for the full `metadata.json` schema.
+
+---
+
+### `inference/infer.py` — One-shot VLM inference
+
+Loads the model directly (no server needed) via vLLM. Run from the **repo root** using the `vllm_ps` conda env on the cluster.
+
+**Global ranking (recommended) — all batches in one call:**
+```bash
+/cmlscratch/adhillon/miniconda3/envs/vllm_ps/bin/python inference/infer.py \
+  --data-dir data/data \
+  --global-rank \
+  --gpu-memory 0.95 \
+  --max-model-len 29728
+```
+Writes a single `data/data/result.json` with the model's ranking across all G0–G19.
+
+**Per-batch mode — one result per batch folder:**
+```bash
+/cmlscratch/adhillon/miniconda3/envs/vllm_ps/bin/python inference/infer.py \
+  --data-dir data/data
+```
+Writes `data/data/batch_NNN/result.json` for each batch independently.
+
+**Key arguments:**
+
+| Argument | Default | Description |
+|---|---|---|
+| `--data-dir` | — | Path to `data/data/` batch folder tree |
+| `--global-rank` | off | Send all batch images in one call for a global ranking |
+| `--gpu-memory` | `0.90` | vLLM GPU memory fraction (try `0.95` if OOM) |
+| `--max-model-len` | model default | Cap context length to fit in VRAM |
+| `--max-tokens` | `2048` | Max output tokens |
+| `--temperature` | `0.1` | Sampling temperature |
+| `-m` / `--model` | `Qwen/Qwen3-VL-8B-Instruct-FP8` | HuggingFace model ID |
+| `--cache-dir` | `~/.cache/huggingface` | Override HF cache location |
 
 ---
 

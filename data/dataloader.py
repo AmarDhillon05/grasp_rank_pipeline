@@ -3,6 +3,7 @@ import re
 import sys
 import json
 import shutil
+import random
 import argparse
 import numpy as np
 from PIL import Image
@@ -91,6 +92,12 @@ def main(args):
                for i in range(0, len(top_grasps), args.batch_size)]
     print(f"{len(top_grasps)} grasps -> {len(batches)} batches of up to {args.batch_size}")
 
+    global_cas = assign_grasp_colors(top_grasps)
+    colors = [ca["color"] for ca in global_cas]
+    random.seed(0)
+    random.shuffle(colors)
+    global_cas = [{"label": ca["label"], "color": c} for ca, c in zip(global_cas, colors)]
+
     cameras = [json.load(open(p)) for p in args.cams]
 
     # Pre-load and resize photos once per camera
@@ -114,7 +121,8 @@ def main(args):
         batch_dir = os.path.join(out_root, f"batch_{batch_idx:03d}")
         os.makedirs(batch_dir)
 
-        cas = assign_grasp_colors(batch)
+        start = batch_idx * args.batch_size
+        cas = global_cas[start:start + len(batch)]
 
         for cam in cameras:
             cam_name = cam["camera_name"]
